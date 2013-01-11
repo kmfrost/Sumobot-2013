@@ -15,7 +15,6 @@ int mcREnPin = 0;     //Right motor controller enable pin - Must be PWM
 int mcRCPin = 0;      //Right motor controller "C" pin
 int mcRDPin = 0;      //Right motor controller "D" pin 
 int scanvel = 0;    //Ideal vel for scanning with sensors
-int vel = 0
 
 Servo motor;          //Instantiate the motor
 
@@ -34,6 +33,7 @@ void setup()
   pinMode(mcREnPin, OUTPUT);
   pinMode(mcRCPin, OUTPUT);
   pinMode(mcRDPin, OUTPUT);
+}
 
 void loop()
 {
@@ -43,16 +43,25 @@ void loop()
     Serial.print("Button pressed!");
   #endif
   motor.write(downPos); //Drop the plate
-  delay(10000);
+  delay(5000)
   
-  //Somehow calibrate the reflective sensors
+  //Somehow calibrate the reflective sensors  
   
-  
+  driveForward(100);
+  delay(5000);
+  driveBackward(100);
+  delay(5000);
+  driveTurn(100, "LEFT");
+  delay(5000);
+  driveTurn(100, "RIGHT");
+  delay(5000);
+  driveStop(100);
+  delay(1000000000);
 }
 
 void driveForward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
-   analogWrite(mcLEnPin, vel);  //Turn on the enable pin for both motor controller sides at the given velocity
+   analogWrite(mcLEnPin, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
    analogWrite(mcREnPin, vel);
    
    digitalWrite(mcLCPin, HIGH);   //Driving forward calls for setting pin C high and pin D low
@@ -72,30 +81,36 @@ void driveBackward(int vel) //vel (velocity) is of the range 0-255 and is a meas
    digitalWrite(mcRDPin, HIGH);
 }
 
-void driveTurn(vel, direction) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
-                                 //Direction dictates which way to turn, "LEFT" or "RIGHT"
+void driveTurn(int vel, String direct) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
+{                              //direct  (direction) dictates which way to turn, "LEFT" or "RIGHT"
   analogWrite(mcLEnPin, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
   analogWrite(mcREnPin, vel);     
 
-  if (direction == "left" || "LEFT" || "Left")
+  if (direct == "LEFT")
   {
    digitalWrite(mcLCPin, LOW);    //Stop the left wheel from turning - set pin C and pin D to the same value
    digitalWrite(mcLDPin, LOW);
-   digitalWrite(mcRCPin, HIGH);    //Drive the right wheel forward - setting pin C high and pin D low
+   digitalWrite(mcRCPin, HIGH);   //Drive the right wheel forward - setting pin C high and pin D low
    digitalWrite(mcRDPin, LOW);
   }
-  else
+  else if (direct == "RIGHT")
   {
+   digitalWrite(mcLCPin, HIGH);   //Drive the left wheel forward - setting pin C high and pin D low
+   digitalWrite(mcLDPin, LOW);
+   digitalWrite(mcRCPin, LOW);    //Stop the right wheel from turning - set pin C and pin D to the same value
+   digitalWrite(mcRDPin, LOW);
+  }
+}
 
 
-void stopDriving(vel)  //vel (velocity) is of the range 0-255 and is a measure of how quickly to stop
+void driveStop(int vel)  //vel (velocity) is of the range 0-255 and is a measure of how quickly to stop
 {
   analogWrite(mcLEnPin, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
   analogWrite(mcREnPin, vel);
   
-   digitalWrite(mcLCPin, LOW);   //Stopping  calls for setting the C and D pins to the same value
-   digitalWrite(mcLDPin, LOW);
-   digitalWrite(mcRCPin, LOW);
-   digitalWrite(mcRDPin, LOW);
+  digitalWrite(mcLCPin, LOW);   //Stopping  calls for setting the C and D pins to the same value
+  digitalWrite(mcLDPin, LOW);
+  digitalWrite(mcRCPin, LOW);
+  digitalWrite(mcRDPin, LOW);
 }
    
