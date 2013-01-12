@@ -5,7 +5,6 @@
 //This is the main code for BRUTUS the sumobot
 //Written by Kayla Frost and Ben Straub
 
-
 #define DEBUG
 #define UP_POS 0           //Raised position for the plate
 #define DOWN_POS 110       //Lowered position for the plate
@@ -79,13 +78,10 @@ void setup()
   #endif
   delay(fiveSeconds);
   motor.write(DOWN_POS); //Drop the plate
-
-
 }
 
 void loop()
 {
-  //Somehow calibrate the reflective sensors  
 #ifdef DEBUG
   Serial.print("Mode:");
   Serial.println(mode);
@@ -160,8 +156,8 @@ void driveStop(int vel)  //vel (velocity) is of the range 0-255 and is a measure
 void wideSearch()
 //Search for target by swiveling left and right at intervals increasing by [addTime]
 {
- int baseTime = 750;
- int addTime = 1500;
+ int baseTime = 100;
+ int addTime = 300;
  #ifdef DEBUG
    Serial.println("About to turn left");
  #endif
@@ -183,8 +179,7 @@ void fineSearch()
 {
   driveTurn(scanVel, LEFT);
   while(checkPing() == PING_TRIG){
-    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG)
-      {
+    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG){
         mode = CHARGE_MODE;
         return;
       }
@@ -193,8 +188,7 @@ void fineSearch()
   driveTurn(scanVel, RIGHT);
   delay(50);   //Give the robot some time to get back into ping range
     while(checkPing() == PING_TRIG){
-    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG)
-      {
+    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG){
         mode = CHARGE_MODE;
         return;
       }
@@ -203,6 +197,9 @@ void fineSearch()
   while(millis() < ((timeRight-timeLeft)/2))  //Use the average of the two times to return to approximately the middle/starting position
     driveTurn(scanVel, LEFT);
   driveForward(scanVel);
+  delay(100);
+  driveStop(scanVel);
+  mode = WIDE_SEARCH_MODE;
 }
 
 void charge()
@@ -214,14 +211,15 @@ void charge()
       getAwayFromEdge();
       break;
     }
-    if(checkLRIR() != LRIR_TRIG && checkSRIR() != SRIR_TRIG){
-      mode = FINE_SEARCH_MODE;
-      break;
+    if(checkLRIR() == LRIR_TRIG || checkSRIR() == SRIR_TRIG){
+      continue;
     }
     if(checkPing() != PING_TRIG){
       mode = WIDE_SEARCH_MODE;
       break;  
     }
+    mode = FINE_SEARCH_MODE;
+    break;
   }
   driveStop(maxVel);
 }
@@ -239,23 +237,26 @@ boolean wideScan(int interval)
      #ifdef DEBUG
        Serial.println("SRIR Detected");
      #endif
-     return true;}
+     return true;
+   }
    if(checkLRIR() == LRIR_TRIG){
      driveStop(scanVel);
      mode = CHARGE_MODE;
      #ifdef DEBUG
        Serial.println("LRIR Detected");
      #endif 
-     return true;}
+     return true;
+   }
    if(checkPing() == PING_TRIG){
      driveStop(scanVel);
      mode = FINE_SEARCH_MODE;
      #ifdef DEBUG
        Serial.println("PING Detected");
      #endif     
-     return true;}
-   return false;
+     return true;
+   }
  }
+ return false;
 }
 
 
@@ -309,17 +310,17 @@ boolean checkLines()
 
 void getAwayFromEdge()
 {
-  
   driveBackward(scanVel);
-  delay(100);
+  delay(500);
   driveTurn(scanVel, LEFT);
-  delay(100);
+  delay(500);
   #ifdef DEBUG
     Serial.println("I'm trying to get away from the edge");
   #endif
   driveStop(scanVel);
   rightLineFlag = false;
   leftLineFlag = false;
+}
 //  }
 //  if(rightLineFlag == true){
 //    driveTurn(scanVel, LEFT);
@@ -333,4 +334,4 @@ void getAwayFromEdge()
 //    driveStop(scanVel);
 //    leftLineFlag == false;
 //  }
-}
+//}
