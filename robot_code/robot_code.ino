@@ -132,30 +132,50 @@ void driveStop(int vel)  //vel (velocity) is of the range 0-255 and is a measure
   digitalWrite(MC_R_D_PIN, LOW);
 }
 
-boolean wideSearch()
+void wideSearch()
 //Search for target by swiveling left and right at intervals increasing by [addTime]
 {
  int baseTime = 250;
  int addTime = 500;
  driveTurn(scanVel, LEFT);
- if (scan(baseTime))
-   return true; 
+ if (wideScan(baseTime))
+   return; 
  driveTurn(scanVel, RIGHT);
- if (scan(baseTime + addTime))
-   return true;
+ if (wideScan(baseTime + addTime))
+   return;
  driveTurn(scanVel, LEFT);
- if (scan(baseTime + 2*addTime))
-   return true;
+ if (wideScan(baseTime + 2*addTime))
+   return;
  driveTurn(scanVel, RIGHT);
- if (scan(baseTime + 3*addTime))
-   return true;
+ if (wideScan(baseTime + 3*addTime))
+   return;
  driveStop(scanVel); 
- return false;
 }
 
-boolean fineSearch()
+void fineSearch()
 {
- return true; 
+  driveTurn(scanVel, LEFT);
+  while(checkPing() == PING_TRIG){
+    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG)
+      {
+        mode = CHARGE_MODE;
+        return;
+      }
+  }
+  int timeLeft = millis();
+  driveTurn(scanVel, RIGHT);
+  delay(50);   //Give the robot some time to get back into ping range
+    while(checkPing() == PING_TRIG){
+    if(checkSRIR() == SRIR_TRIG || checkLRIR() == LRIR_TRIG)
+      {
+        mode = CHARGE_MODE;
+        return;
+      }
+    }
+  int timeRight = millis();
+  while(millis() < ((timeRight-timeRight)/2))  //Use the average of the two times to return to approximately the middle/starting position
+    driveTurn(scanVel, LEFT);
+  driveForward(scanVel);
 }
 
 void charge()
@@ -163,7 +183,7 @@ void charge()
   
 }
 
-boolean scan(int interval)
+boolean wideScan(int interval)
 //While searching for target, monitor the sonar and long range IR sensors for any objects
 {
  int time = millis();
@@ -185,6 +205,7 @@ boolean scan(int interval)
    return false;
  }
 }
+
 
 int checkPing()
 {
