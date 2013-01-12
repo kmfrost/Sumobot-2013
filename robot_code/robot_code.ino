@@ -75,15 +75,19 @@ void setup()
   #ifdef DEBUG
     Serial.print("Button pressed!");
   #endif
-  motor.write(DOWN_POS); //Drop the plate
   delay(fiveSeconds);
+  motor.write(DOWN_POS); //Drop the plate
+
 
 }
 
 void loop()
 {
   //Somehow calibrate the reflective sensors  
-
+#ifdef DEBUG
+  Serial.print("Mode:");
+  Serial.println(mode);
+#endif
 if (mode == WIDE_SEARCH_MODE)
   wideSearch();
 if (mode == FINE_SEARCH_MODE)  
@@ -94,57 +98,49 @@ if (mode == CHARGE_MODE)
 
 void driveForward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
-  while(!checkLines){
-     analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
-     analogWrite(MC_R_EN_PIN, vel);
-   
-     digitalWrite(MC_L_C_PIN, HIGH);   //Driving forward calls for setting pin C high and pin D low
-     digitalWrite(MC_L_D_PIN, LOW);
-     digitalWrite(MC_R_C_PIN, HIGH);
-     digitalWrite(MC_R_D_PIN, LOW);
-  }
-  if(checkLines)
-    getAwayFromEdge();
+   analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
+   analogWrite(MC_R_EN_PIN, vel);
+ 
+   digitalWrite(MC_L_C_PIN, HIGH);   //Driving forward calls for setting pin C high and pin D low
+   digitalWrite(MC_L_D_PIN, LOW);
+   digitalWrite(MC_R_C_PIN, HIGH);
+   digitalWrite(MC_R_D_PIN, LOW);
 }
 
 void driveBackward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
-  while(!checkLines){
-    analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-    analogWrite(MC_R_EN_PIN, vel);
-   
-    digitalWrite(MC_L_C_PIN, LOW);   //Driving backward calls for setting pin C low and pin D high
-    digitalWrite(MC_L_D_PIN, HIGH);
-    digitalWrite(MC_R_C_PIN, LOW);
-    digitalWrite(MC_R_D_PIN, HIGH);
-  }
-  if(checkLines)
-    getAwayFromEdge();
+  analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
+  analogWrite(MC_R_EN_PIN, vel);
+ 
+  digitalWrite(MC_L_C_PIN, LOW);   //Driving backward calls for setting pin C low and pin D high
+  digitalWrite(MC_L_D_PIN, HIGH);
+  digitalWrite(MC_R_C_PIN, LOW);
+  digitalWrite(MC_R_D_PIN, HIGH);
 }
 
 void driveTurn(int vel, int direct) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
-{                              //direct  (direction) dictates which way to turn, LEFT or RIGHT
-  while(!checkLines){  
-    analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-    analogWrite(MC_R_EN_PIN, vel);     
-  
-    if (direct == LEFT)
-    {
-     digitalWrite(MC_L_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
-     digitalWrite(MC_L_D_PIN, HIGH);
-     digitalWrite(MC_R_C_PIN, HIGH);   //Drive the right wheel forward - setting pin C high and pin D low
-     digitalWrite(MC_R_D_PIN, LOW);
-    }
-    else if (direct == RIGHT)
-    {
-     digitalWrite(MC_L_C_PIN, HIGH);   //Drive the left wheel forward - setting pin C high and pin D low
-     digitalWrite(MC_L_D_PIN, LOW);
-     digitalWrite(MC_R_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
-     digitalWrite(MC_R_D_PIN, HIGH);
-    }
+{                                   //direct  (direction) dictates which way to turn, LEFT or RIGHT
+  #ifdef DEBUG
+    Serial.println(vel);
+    Serial.println(direct);
+  #endif
+  analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given speed 
+  analogWrite(MC_R_EN_PIN, vel);     
+
+  if (direct == LEFT)
+  {
+   digitalWrite(MC_L_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
+   digitalWrite(MC_L_D_PIN, HIGH);
+   digitalWrite(MC_R_C_PIN, HIGH);   //Drive the right wheel forward - setting pin C high and pin D low
+   digitalWrite(MC_R_D_PIN, LOW);
   }
-  if(checkLines)
-    getAwayFromEdge();
+  else if (direct == RIGHT)
+  {
+   digitalWrite(MC_L_C_PIN, HIGH);   //Drive the left wheel forward - setting pin C high and pin D low
+   digitalWrite(MC_L_D_PIN, LOW);
+   digitalWrite(MC_R_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
+   digitalWrite(MC_R_D_PIN, HIGH);
+   }
 }
 
 
@@ -164,6 +160,9 @@ void wideSearch()
 {
  int baseTime = 250;
  int addTime = 500;
+ #ifdef DEBUG
+   Serial.println("About to turn left");
+ #endif
  driveTurn(scanVel, LEFT);
  if (wideScan(baseTime))
    return; 
@@ -200,7 +199,7 @@ void fineSearch()
       }
     }
   int timeRight = millis();
-  while(millis() < ((timeRight-timeRight)/2))  //Use the average of the two times to return to approximately the middle/starting position
+  while(millis() < ((timeRight-timeLeft)/2))  //Use the average of the two times to return to approximately the middle/starting position
     driveTurn(scanVel, LEFT);
   driveForward(scanVel);
 }
@@ -211,6 +210,7 @@ void charge()
   while(true){
     if(checkLines()){
       mode = WIDE_SEARCH_MODE;
+      getAwayFromEdge();
       break;
     }
     if(checkPing() != PING_TRIG){
@@ -235,14 +235,23 @@ boolean wideScan(int interval)
    if(checkSRIR() == SRIR_TRIG){
      driveStop(scanVel);
      mode = CHARGE_MODE;
+     #ifdef DEBUG
+       Serial.println("SRIR Detected");
+     #endif
      return true;}
    if(checkLRIR() == LRIR_TRIG){
      driveStop(scanVel);
      mode = CHARGE_MODE;
+     #ifdef DEBUG
+       Serial.println("LRIR Detected");
+     #endif 
      return true;}
    if(checkPing() == PING_TRIG){
      driveStop(scanVel);
      mode = FINE_SEARCH_MODE;
+     #ifdef DEBUG
+       Serial.println("PING Detected");
+     #endif     
      return true;}
    return false;
  }
@@ -259,7 +268,7 @@ int checkPing()
 int checkLRIR()
 {
  int LRIRvalue = analogRead(LRIR_PIN);       // reads the value of the long range IR sensor
- if (LRIRvalue > 100)
+ if (LRIRvalue > 150)
    return LRIR_TRIG;
  return NO_TRIG;
 }
@@ -275,12 +284,17 @@ return NO_TRIG;
 boolean checkLines()
 {
   qtrrc.read(sensorValues);
-  if(sensorValues[0] < 1250){
+  #ifdef DEBUG
+    Serial.println("Sensors");
+    Serial.println(sensorValues[0]);
+    Serial.println(sensorValues[1]);
+  #endif
+  if(sensorValues[0] < 1750){
     rightLineFlag = false;
     driveStop(maxVel);
     return true;
   }
-  if(sensorValues[1] < 1250){
+  if(sensorValues[1] < 1750){
     leftLineFlag = true;
     driveStop(maxVel);
     return true;
@@ -290,25 +304,28 @@ boolean checkLines()
 
 void getAwayFromEdge()
 {
-  if(rightLineFlag == true && leftLineFlag == true){
-    driveBackward(scanVel);
-    delay(750);
-    driveTurn(scanVel, LEFT);
-    delay(750);
-    driveStop(scanVel);
-    rightLineFlag = false;
-    leftLineFlag = false;
-  }
-  if(rightLineFlag == true){
-    driveTurn(scanVel, LEFT);
-    delay(750);
-    driveStop(scanVel);
-    rightLineFlag = false;   
-  }
-  if(leftLineFlag == true){
-    driveTurn(scanVel, RIGHT);
-    delay(750);
-    driveStop(scanVel);
-    leftLineFlag == false;
-  }
+  
+  driveBackward(scanVel);
+  delay(2000);
+  driveTurn(scanVel, LEFT);
+  delay(2000);
+  #ifdef DEBUG
+    Serial.println("I'm trying to get away from the edge");
+  #endif
+  driveStop(scanVel);
+  rightLineFlag = false;
+  leftLineFlag = false;
+//  }
+//  if(rightLineFlag == true){
+//    driveTurn(scanVel, LEFT);
+//    delay(750);
+//    driveStop(scanVel);
+//    rightLineFlag = false;   
+//  }
+//  if(leftLineFlag == true){
+//    driveTurn(scanVel, RIGHT);
+//    delay(750);
+//    driveStop(scanVel);
+//    leftLineFlag == false;
+//  }
 }
