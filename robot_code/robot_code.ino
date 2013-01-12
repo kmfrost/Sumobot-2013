@@ -1,3 +1,4 @@
+#include <QTRSensors.h>
 #include <NewPing.h>
 #include <Servo.h>
 
@@ -19,6 +20,12 @@
 #define FINE_SEARCH_MODE 2
 #define CHARGE_MODE 3
 
+#define NUM_LINE_SENSORS   2     // number of sensors used
+#define LINE_SENSOR_TIMEOUT       2500  // waits for 2500 us for sensor outputs to go low
+#define LINE_EMITTER_PIN   QTR_NO_EMITTER_PIN     // emitter is controlled by digital pin 2
+
+#define R_LINE_PIN 12      //Set the right line sensor pin
+#define L_LINE_PIN 13      //Set the left line sensor pin
 #define PING_PIN A5        //Set the ping sensor pin
 #define LRIR_PIN A0        //Set the long range IR (LRIR) pin
 #define SRIR_PIN A1        //Set the short range IR (SRIR) pin
@@ -31,11 +38,19 @@
 #define MC_R_C_PIN 7       //Right motor controller "C" pin
 #define MC_R_D_PIN 6       //Right motor controller "D" pin
 
-int scanVel = 100;           //Ideal vel for scanning with sensors
+int scanVel = 100;           //Ideal velocity for scanning withsensors
+int chargeVel = 200;         //Ideal velocity for charging!
+int maxVel = 255;            //Maximum velocity (also for stopping quickly)
+int fiveSeconds = 5000;      //Define 5 seconds in miliseconds
 int mode = WIDE_SEARCH_MODE; //Define a global "mode" variable
+boolean rightLineFlag = false; //Define a flag for seeing the line from the right line sensor
+boolean leftLineFlag = false;  //Define a flag for seeing the line from the left line sensor
 
 Servo motor;   //Instantiate the servo
-NewPing sonar(PING_PIN, PING_PIN, MAX_PING_DIST);  //NewPing setup of pin and maximum distance 
+NewPing sonar(PING_PIN, PING_PIN, MAX_PING_DIST);  //NewPing setup of pin and maximum distance
+QTRSensorsRC qtrrc((unsigned char[]) {R_LINE_PIN, L_LINE_PIN},  //instantiate the left and right line sensors as an object
+  NUM_LINE_SENSORS, LINE_SENSOR_TIMEOUT, LINE_EMITTER_PIN); 
+unsigned int sensorValues[NUM_LINE_SENSORS];
 
 
 void setup()
@@ -61,7 +76,7 @@ void setup()
     Serial.print("Button pressed!");
   #endif
   motor.write(DOWN_POS); //Drop the plate
-  delay(5000);
+  delay(fiveSeconds);
 
 }
 
@@ -79,45 +94,57 @@ if (mode == CHARGE_MODE)
 
 void driveForward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
-   analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
-   analogWrite(MC_R_EN_PIN, vel);
+  while(!checkLines){
+     analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
+     analogWrite(MC_R_EN_PIN, vel);
    
-   digitalWrite(MC_L_C_PIN, HIGH);   //Driving forward calls for setting pin C high and pin D low
-   digitalWrite(MC_L_D_PIN, LOW);
-   digitalWrite(MC_R_C_PIN, HIGH);
-   digitalWrite(MC_R_D_PIN, LOW);
+     digitalWrite(MC_L_C_PIN, HIGH);   //Driving forward calls for setting pin C high and pin D low
+     digitalWrite(MC_L_D_PIN, LOW);
+     digitalWrite(MC_R_C_PIN, HIGH);
+     digitalWrite(MC_R_D_PIN, LOW);
+  }
+  if(checkLines)
+    getAwayFromEdge();
 }
 
 void driveBackward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
-   analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-   analogWrite(MC_R_EN_PIN, vel);
+  while(!checkLines){
+    analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
+    analogWrite(MC_R_EN_PIN, vel);
    
-   digitalWrite(MC_L_C_PIN, LOW);   //Driving backward calls for setting pin C low and pin D high
-   digitalWrite(MC_L_D_PIN, HIGH);
-   digitalWrite(MC_R_C_PIN, LOW);
-   digitalWrite(MC_R_D_PIN, HIGH);
+    digitalWrite(MC_L_C_PIN, LOW);   //Driving backward calls for setting pin C low and pin D high
+    digitalWrite(MC_L_D_PIN, HIGH);
+    digitalWrite(MC_R_C_PIN, LOW);
+    digitalWrite(MC_R_D_PIN, HIGH);
+  }
+  if(checkLines)
+    getAwayFromEdge();
 }
 
 void driveTurn(int vel, int direct) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {                              //direct  (direction) dictates which way to turn, LEFT or RIGHT
-  analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-  analogWrite(MC_R_EN_PIN, vel);     
-
-  if (direct == LEFT)
-  {
-   digitalWrite(MC_L_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
-   digitalWrite(MC_L_D_PIN, HIGH);
-   digitalWrite(MC_R_C_PIN, HIGH);   //Drive the right wheel forward - setting pin C high and pin D low
-   digitalWrite(MC_R_D_PIN, LOW);
+  while(!checkLines){  
+    analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
+    analogWrite(MC_R_EN_PIN, vel);     
+  
+    if (direct == LEFT)
+    {
+     digitalWrite(MC_L_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
+     digitalWrite(MC_L_D_PIN, HIGH);
+     digitalWrite(MC_R_C_PIN, HIGH);   //Drive the right wheel forward - setting pin C high and pin D low
+     digitalWrite(MC_R_D_PIN, LOW);
+    }
+    else if (direct == RIGHT)
+    {
+     digitalWrite(MC_L_C_PIN, HIGH);   //Drive the left wheel forward - setting pin C high and pin D low
+     digitalWrite(MC_L_D_PIN, LOW);
+     digitalWrite(MC_R_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
+     digitalWrite(MC_R_D_PIN, HIGH);
+    }
   }
-  else if (direct == RIGHT)
-  {
-   digitalWrite(MC_L_C_PIN, HIGH);   //Drive the left wheel forward - setting pin C high and pin D low
-   digitalWrite(MC_L_D_PIN, LOW);
-   digitalWrite(MC_R_C_PIN, LOW);    //Drive the left wheel backwards - setting the pin C low and pin D high
-   digitalWrite(MC_R_D_PIN, HIGH);
-  }
+  if(checkLines)
+    getAwayFromEdge();
 }
 
 
@@ -180,7 +207,10 @@ void fineSearch()
 
 void charge()
 {
-  
+  while(!checkLines)
+    driveForward(chargeVel);
+  driveStop(maxVel);
+  mode = WIDE_SEARCH_MODE;
 }
 
 boolean wideScan(int interval)
@@ -228,4 +258,45 @@ int SRIRvalue = digitalRead(SRIR_PIN);      //reads the value of the short range
 if (!SRIRvalue)
   return SRIR_TRIG;
 return NO_TRIG;
+}
+
+boolean checkLines()
+{
+  qtrrc.read(sensorValues);
+  if(sensorValues[0] < 1250){
+    rightLineFlag = false;
+    driveStop(maxVel);
+    return true;
+  }
+  if(sensorValues[1] < 1250){
+    leftLineFlag = true;
+    driveStop(maxVel);
+    return true;
+  return false;
+  }
+}
+
+void getAwayFromEdge()
+{
+  if(rightLineFlag == true && leftLineFlag == true){
+    driveBackward(scanVel);
+    delay(750);
+    driveTurn(scanVel, LEFT);
+    delay(750);
+    driveStop(scanVel);
+    rightLineFlag = false;
+    leftLineFlag = false;
+  }
+  if(rightLineFlag == true){
+    driveTurn(scanVel, LEFT);
+    delay(750);
+    driveStop(scanVel);
+    rightLineFlag = false;   
+  }
+  if(leftLineFlag == true){
+    driveTurn(scanVel, RIGHT);
+    delay(750);
+    driveStop(scanVel);
+    leftLineFlag == false;
+  }
 }
