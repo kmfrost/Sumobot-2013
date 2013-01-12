@@ -207,10 +207,22 @@ void fineSearch()
 
 void charge()
 {
-  while(!checkLines)
-    driveForward(chargeVel);
-  driveStop(maxVel);
-  mode = WIDE_SEARCH_MODE;
+  driveForward(chargeVel);
+  while(true){
+    if(checkLines()){
+      mode = WIDE_SEARCH_MODE;
+      break;
+    }
+    if(checkPing() != PING_TRIG){
+      mode = WIDE_SEARCH_MODE;
+      break;  
+    }
+    if(checkLRIR() != LRIR_TRIG && checkSRIR() != SRIR_TRIG){
+      mode = FINE_SEARCH_MODE;
+      break;
+    }
+    driveStop(maxVel);
+  }
 }
 
 boolean wideScan(int interval)
