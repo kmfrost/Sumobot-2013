@@ -11,7 +11,7 @@
 #define DOWN_POS 110       //Lowered position for the plate
 #define LEFT 0             //Define left and right as integers to minimize memory usage
 #define RIGHT 1        
-#define MAX_PING_DIST 70   //Maximum distance we want to ping for (in cm)
+#define MAX_PING_DIST 40   //Maximum distance we want to ping for (in cm)
 #define NO_TRIG 0          //Define strings to represent the different sensor triggers
 #define PING_TRIG 1
 #define LRIR_TRIG 2
@@ -19,6 +19,7 @@
 #define WIDE_SEARCH_MODE 1 //Define constants for the different modes
 #define FINE_SEARCH_MODE 2
 #define CHARGE_MODE 3
+#define MIN_PING_DELAY 75
 
 #define NUM_LINE_SENSORS   2     // number of sensors used
 #define LINE_SENSOR_TIMEOUT       2500  // waits for 2500 us for sensor outputs to go low
@@ -38,9 +39,10 @@
 #define MC_R_C_PIN 7       //Right motor controller "C" pin
 #define MC_R_D_PIN 6       //Right motor controller "D" pin
 
-int scanVel = 100;           //Ideal velocity for scanning withsensors
-int chargeVel = 200;         //Ideal velocity for charging!
-int maxVel = 255;            //Maximum velocity (also for stopping quickly)
+int timeLastPing = 0;        //global var of last ping
+int scanVel = 50;           //Ideal velocity for scanning withsensors
+int chargeVel = 75;         //Ideal velocity for charging!
+int maxVel = 150;            //Maximum velocity (also for stopping quickly)
 int fiveSeconds = 5000;      //Define 5 seconds in miliseconds
 int mode = WIDE_SEARCH_MODE; //Define a global "mode" variable
 boolean rightLineFlag = false; //Define a flag for seeing the line from the right line sensor
@@ -99,7 +101,7 @@ if (mode == CHARGE_MODE)
 void driveForward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
    analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given velocity
-   analogWrite(MC_R_EN_PIN, vel);
+   analogWrite(MC_R_EN_PIN, vel*1.2);
  
    digitalWrite(MC_L_C_PIN, HIGH);   //Driving forward calls for setting pin C high and pin D low
    digitalWrite(MC_L_D_PIN, LOW);
@@ -110,7 +112,7 @@ void driveForward(int vel) //vel (velocity) is of the range 0-255 and is a measu
 void driveBackward(int vel) //vel (velocity) is of the range 0-255 and is a measure of how fast to turn the motors
 {
   analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-  analogWrite(MC_R_EN_PIN, vel);
+  analogWrite(MC_R_EN_PIN, vel*1.2);
  
   digitalWrite(MC_L_C_PIN, LOW);   //Driving backward calls for setting pin C low and pin D high
   digitalWrite(MC_L_D_PIN, HIGH);
@@ -125,7 +127,7 @@ void driveTurn(int vel, int direct) //vel (velocity) is of the range 0-255 and i
     Serial.println(direct);
   #endif
   analogWrite(MC_L_EN_PIN, vel);    //Turn on the enable pin for both motor controller sides at the given speed 
-  analogWrite(MC_R_EN_PIN, vel);     
+  analogWrite(MC_R_EN_PIN, vel*1.2);     
 
   if (direct == LEFT)
   {
@@ -147,7 +149,7 @@ void driveTurn(int vel, int direct) //vel (velocity) is of the range 0-255 and i
 void driveStop(int vel)  //vel (velocity) is of the range 0-255 and is a measure of how quickly to stop
 {
   analogWrite(MC_L_EN_PIN, vel);  //Turn on the enable pin for both motor controller sides at the given speed 
-  analogWrite(MC_R_EN_PIN, vel);
+  analogWrite(MC_R_EN_PIN, vel*1.2);
   
   digitalWrite(MC_L_C_PIN, LOW);   //Stopping  calls for setting the C and D pins to the same value
   digitalWrite(MC_L_D_PIN, LOW);
@@ -158,8 +160,8 @@ void driveStop(int vel)  //vel (velocity) is of the range 0-255 and is a measure
 void wideSearch()
 //Search for target by swiveling left and right at intervals increasing by [addTime]
 {
- int baseTime = 250;
- int addTime = 500;
+ int baseTime = 750;
+ int addTime = 1500;
  #ifdef DEBUG
    Serial.println("About to turn left");
  #endif
@@ -175,7 +177,6 @@ void wideSearch()
  driveTurn(scanVel, RIGHT);
  if (wideScan(baseTime + 3*addTime))
    return;
- driveStop(scanVel); 
 }
 
 void fineSearch()
@@ -213,16 +214,16 @@ void charge()
       getAwayFromEdge();
       break;
     }
-    if(checkPing() != PING_TRIG){
-      mode = WIDE_SEARCH_MODE;
-      break;  
-    }
     if(checkLRIR() != LRIR_TRIG && checkSRIR() != SRIR_TRIG){
       mode = FINE_SEARCH_MODE;
       break;
     }
-    driveStop(maxVel);
+    if(checkPing() != PING_TRIG){
+      mode = WIDE_SEARCH_MODE;
+      break;  
+    }
   }
+  driveStop(maxVel);
 }
 
 boolean wideScan(int interval)
@@ -260,6 +261,10 @@ boolean wideScan(int interval)
 
 int checkPing()
 {
+  int currentTime = millis();
+  if(currentTime-timeLastPing < MIN_PING_DELAY)
+    delay(MIN_PING_DELAY - currentTime + timeLastPing);
+  timeLastPing = millis();
   if (sonar.ping() > 0)                      //Check to see if the ping sensor sees anything
     return PING_TRIG;
   return NO_TRIG;
@@ -298,17 +303,17 @@ boolean checkLines()
     leftLineFlag = true;
     driveStop(maxVel);
     return true;
-  return false;
   }
+  return false;
 }
 
 void getAwayFromEdge()
 {
   
   driveBackward(scanVel);
-  delay(2000);
+  delay(100);
   driveTurn(scanVel, LEFT);
-  delay(2000);
+  delay(100);
   #ifdef DEBUG
     Serial.println("I'm trying to get away from the edge");
   #endif
